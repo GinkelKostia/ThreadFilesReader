@@ -4,105 +4,99 @@ ThreadFilesReader::ThreadFilesReader() {
 	size_t thread_num = std::thread::hardware_concurrency();
 	if (thread_num == 0) thread_num = 4;
 
-	threadNum = thread_num;
+	m_thread_num = thread_num;
 
-	for (int i = 0; i < threadNum - 1; i++) {
-		threads.emplace_back(&ThreadFilesReader::workThread, this);
+	for (int i = 0; i < m_thread_num - 1; i++) {
+		m_threads.emplace_back(&ThreadFilesReader::WorkThread, this);
 	}
-	threads.emplace_back(&ThreadFilesReader::saveToFile, this);
+	m_threads.emplace_back(&ThreadFilesReader::SaveToFile, this);
 }
 
 ThreadFilesReader::~ThreadFilesReader() {
 	{
-		std::lock_guard<std::mutex> lock(thread_mutex);
-		isEnd = true;
+		std::lock_guard<std::mutex> lock(m_thread_mutex);
+		m_is_end = true;
 	}
 
-	cv.notify_all();
+	m_cv.notify_all();
 
-	for (std::thread& t : threads) {
+	for (std::thread& t : m_threads) {
 		t.join();
 	}
 }
 
-void ThreadFilesReader::searchThread(const std::string& path) {
+void ThreadFilesReader::SearchThread(const std::string& path) {
 	for (auto& file : std::filesystem::recursive_directory_iterator(path)) {
 		if (!file.is_regular_file()) continue;
 
-		if (!isValidType(file.path())) continue;
+		if (!IsValidType(file.path())) continue;
 
 		{
-			std::lock_guard<std::mutex> lock(thread_mutex);
-			fileQueue.push(file.path().string());
-			cv.notify_one();
+			std::lock_guard<std::mutex> lock(m_thread_mutex);
+			m_file_queue.push(file.path().string());
+			m_cv.notify_one();
 		}
 	}
 
 	{
-		std::lock_guard<std::mutex> lock(thread_mutex);
-		isSave = true;
-		cv.notify_all();
+		std::lock_guard<std::mutex> lock(m_thread_mutex);
+		m_is_save = true;
+		m_cv.notify_all();
 	}
 }
 
-void ThreadFilesReader::saveToFile() {
+void ThreadFilesReader::SaveToFile() {
 	while (true) {
 		{
-			std::unique_lock<std::mutex> lock(thread_mutex);
-			cv.wait(lock, [this]() { return isSave || isEnd; });
-			if (isEnd) return;
+			std::unique_lock<std::mutex> lock(m_thread_mutex);
+			m_cv.wait(lock, [this]() { return m_is_save || m_is_end; });
+			if (m_is_end) return;
 
 			std::ofstream stream("log.txt");
 
 			std::chrono::time_point<std::chrono::high_resolution_clock> end = std::chrono::high_resolution_clock::now();
 
-			stream << "Time of execution: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms\n";
-			stream << "Blank Lines: " << std::to_string(stats.blankLines) << '\n';
-			stream << "Comment Lines: " << std::to_string(stats.commentLines) << '\n';
-			stream << "Code Lines: " << std::to_string(stats.codeLines) << '\n';
-			stream << "Files processed: " << stats.filesCount << '\n';
+			stream << "Time of execution: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - m_start).count() << " ms\n";
+			stream << "Blank Lines: " << std::to_string(m_stats.blank_lines) << '\n';
+			stream << "Comment Lines: " << std::to_string(m_stats.comment_lines) << '\n';
+			stream << "Code Lines: " << std::to_string(m_stats.code_lines) << '\n';
+			stream << "Files processed: " << m_stats.files_count << '\n';
 
-			stats.blankLines = 0;
-			stats.codeLines = 0;
-			stats.commentLines = 0;
-			stats.filesCount = 0;
+			m_stats.blank_lines = 0;
+			m_stats.code_lines = 0;
+			m_stats.comment_lines = 0;
+			m_stats.files_count = 0;
 
-			isSave = false;
+			m_is_save = false;
 		}
 	}
 }
 
-void ThreadFilesReader::handleRootFolderInput() {
-	std::cout << "Enter the root folder: ";
-
-	std::string temp{};
-	std::getline(std::cin, temp);
-
-	std::filesystem::path dir = temp;
+void ThreadFilesReader::SetRootFolder(const std::string& root) {
+	std::filesystem::path dir = root;
 
 	if (std::filesystem::exists(dir) &&
 		std::filesystem::is_directory(dir)) {
 
-		rootFolder = temp;
-		std::cout << "Root folder assigned successfully!\n";
+		m_rootFolder = root;
 	}
 	else {
 		std::cout << "Root folder does not exist!\n";
 	}
 }
 
-void ThreadFilesReader::startSearching() {
-	start = std::chrono::high_resolution_clock::now();
-	if (rootFolder.empty()) {
+void ThreadFilesReader::StartSearching() {
+	m_start = std::chrono::high_resolution_clock::now();
+	if (m_rootFolder.empty()) {
 		std::cout << "Root folder was not assigned!\n";
 		return;
 	}
-	std::thread search(&ThreadFilesReader::searchThread, this, ".");
+	std::thread search(&ThreadFilesReader::SearchThread, this, ".");
 	search.join();
-	cv.notify_all();
+	m_cv.notify_all();
 }
 
-std::string ThreadFilesReader::trim(const std::string& str) {
+std::string ThreadFilesReader::Trim(const std::string& str) {
 	size_t begin = str.find_first_not_of(" \t\r\n");
 
 	if (begin == std::string::npos) return "";
@@ -111,9 +105,9 @@ std::string ThreadFilesReader::trim(const std::string& str) {
 
 	return str.substr(begin, end - begin + 1);
 }
-bool ThreadFilesReader::processLine(const std::string& str, bool isBlockComment) {
+bool ThreadFilesReader::ProcessLine(const std::string& str, bool isBlockComment) {
 	if (str.empty()) {
-		stats.blankLines++;
+		m_stats.blank_lines++;
 		return isBlockComment;
 	}
 
@@ -176,12 +170,12 @@ bool ThreadFilesReader::processLine(const std::string& str, bool isBlockComment)
 		isEscape = false;
 	}
 
-	if (isComment) stats.commentLines++;
-	if (isCode) stats.codeLines++;
+	if (isComment) m_stats.comment_lines++;
+	if (isCode) m_stats.code_lines++;
 
 	return isBlockComment;
 }
-void ThreadFilesReader::processFile(const std::string& path) {
+void ThreadFilesReader::ProcessFile(const std::string& path) {
 	std::ifstream file(path);
 
 	if (!file.is_open()) {
@@ -192,59 +186,33 @@ void ThreadFilesReader::processFile(const std::string& path) {
 	std::string str;
 	bool isBlockComment = false;
 	while (std::getline(file, str)) {
-		str = trim(str);
+		str = Trim(str);
 
-		isBlockComment = processLine(str, isBlockComment);
+		isBlockComment = ProcessLine(str, isBlockComment);
 	}
 
-	stats.filesCount++;
+	m_stats.files_count++;
 }
-void ThreadFilesReader::workThread() {
+void ThreadFilesReader::WorkThread() {
 	while (true) {
 		std::string file;
 
 		{
-			std::unique_lock<std::mutex> lock(thread_mutex);
-			cv.wait(lock, [this]() { return !fileQueue.empty() || isEnd; });
+			std::unique_lock<std::mutex> lock(m_thread_mutex);
+			m_cv.wait(lock, [this]() { return !m_file_queue.empty() || m_is_end; });
 
-			if (fileQueue.empty() && isEnd) return;
+			if (m_file_queue.empty() && m_is_end) return;
 
-			file = fileQueue.front();
-			fileQueue.pop();
+			file = m_file_queue.front();
+			m_file_queue.pop();
 		}
 
-		processFile(file);
+		ProcessFile(file);
 	}
 }
 
-bool ThreadFilesReader::isValidType(const std::filesystem::path& file) {
+bool ThreadFilesReader::IsValidType(const std::filesystem::path& file) {
 	std::string type = file.extension().string();
 
 	return type == ".h" || type == ".hpp" || type == ".cpp" || type == ".c";
-}
-
-void ThreadFilesReader::handleUserInput() {
-	std::string menu =
-		"=====MENU=====\n"
-		"1. Enter the root folder\n"
-		"2. Process files\n"
-		"3. Exit\n";
-
-	while (true) {
-		std::cout << menu;
-		std::cout << "Enter the choose: ";
-
-		std::string input;
-		std::getline(std::cin, input);
-
-		if (input == "1") {
-			handleRootFolderInput();
-		}
-		else if (input == "2") {
-			startSearching();
-		}
-		else if (input == "3") {
-			return;
-		}
-	}
 }

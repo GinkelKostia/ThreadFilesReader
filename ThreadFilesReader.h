@@ -12,53 +12,51 @@
 
 class ThreadFilesReader {
 public:
-	int getBlankLines() const {
-		return stats.blankLines.load();
+	int GetBlankLines() const {
+		return m_stats.blank_lines.load();
 	}
-	int getCodeLines() const {
-		return stats.codeLines.load();
+	int GetCodeLines() const {
+		return m_stats.code_lines.load();
 	}
-	int getCommentLines() const {
-		return stats.commentLines.load();
+	int GetCommentLines() const {
+		return m_stats.comment_lines.load();
 	}
-	int getFilesCount() const {
-		return stats.filesCount.load();
+	int GetFilesCount() const {
+		return m_stats.files_count.load();
 	}
-    std::string trim(const std::string& str);
-    bool processLine(const std::string& str, bool isBlockComment);
-    void processFile(const std::string& path);
-    bool isValidType(const std::filesystem::path& file);
 
-    void handleUserInput();
+    std::string Trim(const std::string& str);
+    bool ProcessLine(const std::string& str, bool isBlockComment);
+    void ProcessFile(const std::string& path);
+    bool IsValidType(const std::filesystem::path& file);
 
 	ThreadFilesReader();
-
 	~ThreadFilesReader();
 
 private:
-	std::condition_variable cv;
-	std::vector<std::thread> threads;
-	std::queue<std::string> fileQueue;
-	std::mutex thread_mutex;
-	std::size_t threadNum;
-	std::chrono::time_point<std::chrono::high_resolution_clock> start;
-	std::string rootFolder;
+	std::condition_variable m_cv;
+	std::vector<std::thread> m_threads;
+	std::queue<std::string> m_file_queue;
+	std::mutex m_thread_mutex;
+	std::size_t m_thread_num;
+	std::chrono::time_point<std::chrono::high_resolution_clock> m_start;
+	std::string m_rootFolder;
 
-	bool isSave = false;
-	bool isEnd = false;
+	bool m_is_save = false;
+	bool m_is_end = false;
 
 	struct Stat {
-		std::atomic<int> blankLines{ 0 };
-		std::atomic<int> codeLines{ 0 };
-		std::atomic<int> commentLines{ 0 };
-		std::atomic<int> filesCount{ 0 };
+		std::atomic<int> blank_lines{ 0 };
+		std::atomic<int> code_lines{ 0 };
+		std::atomic<int> comment_lines{ 0 };
+		std::atomic<int> files_count{ 0 };
 	};
 
-	Stat stats;
+	Stat m_stats;
 
-	void searchThread(const std::string& path);
-	void saveToFile();
-	void handleRootFolderInput();
-	void startSearching();
-	void workThread();
+	void SearchThread(const std::string& path);
+	void SaveToFile();
+	void SetRootFolder(const std::string& root);
+	void StartSearching();
+	void WorkThread();
 };
