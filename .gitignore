@@ -1,0 +1,10 @@
+.vs/
+CString/
+Debug/
+Release/
+*.sln
+out/
+x64/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
