@@ -1,5 +1,7 @@
 #include "ThreadFilesReader.h"
 
+using namespace ISXFileReader;
+
 ThreadFilesReader::ThreadFilesReader() {
 	size_t thread_num = std::thread::hardware_concurrency();
 	if (thread_num == 0) thread_num = 4;
@@ -193,6 +195,7 @@ void ThreadFilesReader::ProcessFile(const std::string& path) {
 
 	m_stats.files_count++;
 }
+
 void ThreadFilesReader::WorkThread() {
 	while (true) {
 		std::string file;
@@ -215,4 +218,53 @@ bool ThreadFilesReader::IsValidType(const std::filesystem::path& file) {
 	std::string type = file.extension().string();
 
 	return type == ".h" || type == ".hpp" || type == ".cpp" || type == ".c";
+}
+
+#include <iostream>
+#include <string>
+
+void ThreadFilesReader::Menu()
+{
+	const std::string menu =
+		"====== Menu ======\n"
+		"1. Set root folder\n"
+		"2. Start searching\n"
+		"3. Exit\n";
+
+	while (true)
+	{
+		std::cout << menu;
+		std::cout << "Enter your choice: ";
+
+		std::string input;
+		std::getline(std::cin, input);
+
+		if (input.empty())
+		{
+			std::cout << "Please enter a choice.\n\n";
+			continue;
+		}
+
+		if (input == "1")
+		{
+			std::cout << "Enter root folder: ";
+
+			std::string path;
+			std::getline(std::cin, path);
+
+			SetRootFolder(path);
+		}
+		else if (input == "2")
+		{
+			StartSearching();
+		}
+		else if (input == "3")
+		{
+			return;
+		}
+		else
+		{
+			std::cout << "Invalid choice!\n\n";
+		}
+	}
 }

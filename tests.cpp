@@ -5,6 +5,8 @@
 #include <fstream>
 #include "ThreadFilesReader.h"
 
+using namespace ISXFileReader;	
+
 class TFRTest : public ::testing::Test {
 public:
 	void SetUp() override {
