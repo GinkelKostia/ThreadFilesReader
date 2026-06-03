@@ -2,9 +2,9 @@
 #include "ThreadFilesReader.h"
 
 int main(int argc, char** argv) {
-	testing::InitGoogleTest(&argc, argv);
-	ThreadFilesReader reader;
+	//testing::InitGoogleTest(&argc, argv);
+	ISXFileReader::ThreadFilesReader reader;
 	reader.Menu();
 
-	return RUN_ALL_TESTS();
+	//return RUN_ALL_TESTS();
 }

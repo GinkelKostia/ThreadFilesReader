@@ -6,9 +6,8 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_executable(MyProject
     main.cpp
-     "tests.cpp"
     ThreadFilesReader.cpp
-)
+ "ThreadPool.h" "ThreadPool.cpp" "Statistics.h" "FileProcessor.h" "FileProcessor.cpp" "FileSearcher.h" "FileSearcher.cpp" "FileSaver.h")
 
 include(FetchContent)
 
